@@ -1,351 +1,248 @@
-body {
-  font-family: 'Poppins', sans-serif;
-  background: #FFFFFF;
-  color: #32205f;
-  margin: 0;
+const taxasCapim = {
+    1: 3.15, 2: 4.39, 3: 4.96, 4: 5.54, 5: 6.12, 6: 6.70, 7: 7.48, 8: 8.06, 9: 8.64, 
+    10: 9.22, 11: 9.35, 12: 10.14, 13: 11.13, 14: 11.90, 15: 12.67, 16: 13.44, 17: 14.21, 
+    18: 14.98, 19: 15.75, 20: 16.52, 21: 17.29, 22: 18.00, 23: 18.50
+};
+
+const vendasMesInput = document.getElementById('vendasMes');
+const numParcelasRange = document.getElementById('numParcelas');
+const numParcelasLabel = document.getElementById('numParcelasLabel');
+const parcelaAtualLabel = document.getElementById('parcelasAtualLabel');
+const taxaAtualInput = document.getElementById('taxaAtual');
+const btnCalcular = document.getElementById('btnCalcular');
+const alerta = document.getElementById('alerta');
+const resultBlock = document.getElementById('result-block');
+const concTaxaEl = document.getElementById("concTaxa");
+const concTotalEl = document.getElementById("concTotal");
+const concParcelaEl = document.getElementById("concParcela");
+const capimTaxaEl = document.getElementById("capimTaxa");
+const capimTotalEl = document.getElementById("capimTotal");
+const capimParcelaEl = document.getElementById("capimParcela");
+const economiaEl = document.getElementById("economia");
+
+const btnAvancadas = document.getElementById('btnAvancadas');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
+const btnFecharSidebar = document.getElementById('btnFecharSidebar');
+const taxasList = document.getElementById('taxasList');
+const contatoInput = document.getElementById('contato');
+const btnEnviarProposta = document.getElementById('btnEnviarProposta');
+const btnEnviarPropostaTopo = document.getElementById('btnEnviarPropostaTopo');
+
+vendasMesInput.addEventListener('input', formatarMoeda);
+vendasMesInput.addEventListener('blur', () => {
+    if (vendasMesInput.value.trim() === '') {
+        vendasMesInput.value = 'R$ 0,00';
+    }
+    formatarMoeda();
+});
+
+taxaAtualInput.addEventListener('input', () => {
+    formatarTaxaInputPercentual(taxaAtualInput);
+});
+
+numParcelasRange.addEventListener('input', () => {
+    const qtd = parseInt(numParcelasRange.value, 10);
+    atualizarLabelParcelas(qtd);
+});
+
+btnCalcular.addEventListener('click', calcular);
+btnAvancadas.addEventListener('click', abrirSidebar);
+overlay.addEventListener('click', fecharSidebar);
+btnFecharSidebar.addEventListener('click', fecharSidebar);
+btnEnviarProposta.addEventListener('click', enviarProposta);
+btnEnviarPropostaTopo.addEventListener('click', enviarProposta);
+
+function formatarMoeda() {
+    let valor = vendasMesInput.value.replace(/[^\d]/g, '');
+    if (valor === '') {
+        vendasMesInput.value = '';
+        return;
+    }
+    while (valor.length < 3) {
+        valor = '0' + valor;
+    }
+    const inteiros = valor.slice(0, -2);
+    const decimais = valor.slice(-2);
+    const inteirosFormatados = inteiros.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    vendasMesInput.value = 'R$ ' + inteirosFormatados + ',' + decimais;
 }
 
-header {
-  background: #fff;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  padding: 0 1rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  justify-content: space-between;
+function formatarTaxaInputPercentual(input) {
+    let valor = input.value.replace(/[^\d]/g, '');
+    if (valor === '') {
+        input.value = '';
+        return;
+    }
+    while (valor.length < 3) {
+        valor = '0' + valor;
+    }
+    const parteInteira = parseInt(valor.slice(0, -2), 10);
+    const parteDecimal = valor.slice(-2);
+    input.value = parteInteira + ',' + parteDecimal + '%';
 }
 
-header .logo {
-  height: 40px;
-  cursor: pointer;
+function atualizarLabelParcelas(value) {
+    numParcelasLabel.textContent = value + 'x';
+    parcelaAtualLabel.textContent = value + 'x';
 }
 
-.especialista-link {
-  color: #32205f;
-  font-weight: 600;
-  font-size: 0.9rem;
-  text-decoration: none;
-  background: #BEE41E;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  transition: background 0.2s ease;
+function converterValorMoedaParaNumero(str) {
+    const valorStr = str.replace(/[^\d]/g, '');
+    if (valorStr === '') return 0;
+    return parseFloat(valorStr.slice(0, -2) + '.' + valorStr.slice(-2));
 }
 
-.especialista-link:hover {
-  background: #aacb1b;
+function converterTaxaParaNumero(str) {
+    if (!str || str === '') return 0;
+    const semPorcentagem = str.replace('%', '');
+    const limpa = semPorcentagem.replace(',', '.').replace(/[^\d.]/g, '');
+    return parseFloat(limpa) || 0;
 }
 
-.main-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  max-width: 1200px;
-  margin: 2rem auto;
-  gap: 2rem;
-  padding: 0 1rem;
+function formatarNumeroComPontos(num) {
+    return num.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-.capim-rates {
-  flex: 1;
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  max-width: 350px;
+function calcular() {
+    const valor = converterValorMoedaParaNumero(vendasMesInput.value);
+    const parcelas = parseInt(numParcelasRange.value);
+    const taxaConcorrencia = converterTaxaParaNumero(taxaAtualInput.value);
+
+    if (isNaN(valor) || valor <= 0) {
+        alerta.innerHTML = 'Preencha o valor de vendas no mês corretamente.';
+        resultBlock.style.display = 'none';
+        return;
+    }
+
+    if (isNaN(taxaConcorrencia) || taxaConcorrencia === 0) {
+        alerta.innerHTML = 'Defina a taxa da concorrência para ' + parcelas + 'x (não pode ficar em 0,00%).';
+        resultBlock.style.display = 'none';
+        return;
+    }
+
+    alerta.innerHTML = '';
+    resultBlock.style.display = 'block';
+
+    // Cálculo concorrência
+    const valorConcorrencia = valor * (taxaConcorrencia / 100);
+    const valorFinalConc = valor + valorConcorrencia;
+    const parcelaConc = valorFinalConc / parcelas;
+
+    // Cálculo Capim
+    const taxaCapimEscolhida = taxasCapim[parcelas] || 0;
+    const valorCapim = valor * (taxaCapimEscolhida / 100);
+    const valorFinalCapim = valor + valorCapim;
+    const parcelaCapim = valorFinalCapim / parcelas;
+
+    concTaxaEl.innerText = taxaConcorrencia.toFixed(2) + '%';
+    concTotalEl.innerText = 'R$ ' + formatarNumeroComPontos(valorFinalConc);
+    concParcelaEl.innerText = 'R$ ' + formatarNumeroComPontos(parcelaConc);
+
+    capimTaxaEl.innerText = taxaCapimEscolhida.toFixed(2) + '%';
+    capimTotalEl.innerText = 'R$ ' + formatarNumeroComPontos(valorFinalCapim);
+    capimParcelaEl.innerText = 'R$ ' + formatarNumeroComPontos(parcelaCapim);
+
+    const economiaValor = valorFinalConc - valorFinalCapim;
+    let economiaTexto = '';
+    if (economiaValor > 0) {
+        economiaTexto = 'Você economiza: R$ ' + formatarNumeroComPontos(economiaValor) + ' optando pela Capim!';
+    } else if (economiaValor < 0) {
+        economiaTexto = 'Nesta condição, a Capim sai mais cara. Entre em contato para negociar.';
+    } else {
+        economiaTexto = 'Os custos são iguais. Entre em contato para melhores condições.';
+    }
+
+    economiaEl.innerText = economiaTexto;
 }
 
-.capim-rates h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #32205f;
-  margin-bottom: 1rem;
+function criarLinhasTaxasAvancadas() {
+    taxasList.innerHTML = '';
+    for (let i = 1; i <= 23; i++) {
+        const row = document.createElement('div');
+        row.className = 'taxa-row';
+
+        const label = document.createElement('div');
+        label.className = 'taxa-row-label';
+        label.innerText = i + 'x';
+
+        const inputsContainer = document.createElement('div');
+        inputsContainer.className = 'taxa-row-inputs';
+
+        const inputTxt = document.createElement('input');
+        inputTxt.type = 'text';
+        inputTxt.className = 'taxa-input';
+        inputTxt.placeholder = '0,00';
+        inputTxt.dataset.parcela = i;
+
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = '0';
+        range.max = '30';
+        range.step = '0.01';
+        range.value = '0';
+        range.className = 'taxa-slider';
+        range.dataset.parcela = i;
+
+        inputTxt.addEventListener('input', () => {
+            let valor = inputTxt.value.replace(/[^\d]/g, '');
+            if (valor === '') {
+                inputTxt.value = '';
+                return;
+            }
+            while (valor.length < 3) {
+                valor = '0' + valor;
+            }
+            const parteInteira = parseInt(valor.slice(0, -2), 10);
+            const parteDecimal = valor.slice(-2);
+            inputTxt.value = parteInteira + ',' + parteDecimal;
+            const valorNumero = converterTaxaParaNumero(inputTxt.value + '%');
+            range.value = valorNumero.toFixed(2);
+        });
+
+        range.addEventListener('input', () => {
+            const valor = parseFloat(range.value);
+            const inteiro = Math.floor(valor);
+            const decimais = Math.round((valor - inteiro) * 100);
+            const valorStr = inteiro + ',' + (decimais < 10 ? '0' + decimais : decimais);
+            inputTxt.value = valorStr;
+        });
+
+        inputsContainer.appendChild(inputTxt);
+        inputsContainer.appendChild(range);
+
+        row.appendChild(label);
+        row.appendChild(inputsContainer);
+        taxasList.appendChild(row);
+    }
 }
 
-.capim-rates ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+function criarListaTaxasCapim() {
+    const lista = document.getElementById('listaTaxasCapim');
+    lista.innerHTML = '';
+    for (let i = 1; i <= 23; i++) {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${i}x:</strong> ${taxasCapim[i].toFixed(2)}%`;
+        lista.appendChild(li);
+    }
 }
 
-.capim-rates li {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.95rem;
-  margin-bottom: 0.5rem;
+criarLinhasTaxasAvancadas();
+criarListaTaxasCapim();
+
+function abrirSidebar() {
+    sidebar.classList.add('open');
+    overlay.style.display = 'block';
 }
 
-.container {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 300px;
-  max-width: 450px; /* Aumentamos mais a largura da calculadora */
-  position: relative;
+function fecharSidebar() {
+    sidebar.classList.remove('open');
+    overlay.style.display = 'none';
 }
 
-.calc-container {
-  background: #B5EFF2;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  width: 100%;
-}
-
-.calc-container h2 {
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #32205f;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-}
-
-input[type="text"] {
-  width: 100%;
-  padding: 0.6rem;
-  margin-bottom: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  color: #32205f;
-}
-
-.parcelas-control {
-  margin-bottom: 1rem;
-}
-
-#numParcelas {
-  width: 100%;
-}
-
-button {
-  padding: 0.8rem 1rem;
-  background: #BEE41E;
-  color: #32205f;
-  font-weight: bold;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s ease;
-  text-align: center;
-}
-
-button:hover {
-  background: #aacb1b;
-}
-
-.alerta {
-  color: red;
-  font-size: 0.9rem;
-  margin-top: 1rem;
-}
-
-.result-block {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-top: 1rem;
-}
-
-.result-block h3 {
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #32205f;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  margin: 0.5rem 0;
-  font-size: 0.95rem;
-}
-
-.info-row strong {
-  font-weight: 600;
-}
-
-.economia {
-  margin-top: 1rem;
-  font-size: 1.2rem;
-  font-weight: 700;
-  text-align: center;
-  color: #BEE41E; /* Verde limão */
-}
-
-/* Box promocional */
-.promocao-box {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-top: 1rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
-
-.promocao-box h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #32205f;
-}
-
-.promocao-box ul {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
-}
-
-.promocao-box li {
-  margin-bottom: 0.3rem;
-}
-
-.advanced-trigger {
-  text-align: center;
-  margin-top: 1.5rem;
-}
-
-.advanced-trigger button {
-  background: none;
-  border: none;
-  color: #32205f;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.advanced-trigger button:hover {
-  color: #555;
-}
-
-/* Sidebar Avançada */
-.sidebar {
-  position: fixed;
-  top: 60px;
-  right: -350px;
-  width: 300px;
-  height: calc(100vh - 60px);
-  background: #B5EFF2;
-  box-shadow: -4px 0 8px rgba(0,0,0,0.1);
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  transition: right 0.3s ease;
-  z-index: 999;
-}
-
-.sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.sidebar-header h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #32205f;
-}
-
-.sidebar-header button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  color: #32205f;
-}
-
-.sidebar p {
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.opcoes {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
-.contato-input {
-  margin-bottom: 1rem;
-  padding: 0.6rem;
-  width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  color: #32205f;
-}
-
-.taxas-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1rem;
-}
-
-.taxa-row {
-  background: #fff;
-  border-radius: 4px;
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-}
-
-.taxa-row-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-  color: #32205f;
-}
-
-.taxa-row-inputs {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.taxa-input {
-  flex: 0 0 60px;
-  padding: 0.3rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  text-align: right;
-  font-size: 0.85rem;
-  color: #32205f;
-  height: 1.8rem;
-}
-
-.taxa-slider {
-  flex: 1;
-}
-
-.enviar-btn {
-  margin-top: 1rem;
-  width: 100%;
-}
-
-.overlay {
-  position: fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background: rgba(0,0,0,0.2);
-  display:none;
-  z-index: 998;
-}
-
-.sidebar.open {
-  right: 0;
-}
-
-footer {
-  text-align: center;
-  color: #666;
-  padding: 2rem;
-  font-size: 0.9rem;
+function enviarProposta() {
+    const contato = contatoInput.value.trim();
+    alert('Dados enviados com sucesso!');
+    fecharSidebar();
+    contatoInput.value = '';
 }
