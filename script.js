@@ -92,6 +92,7 @@ function atualizarLabelParcelas(value) {
 }
 
 function converterValorMoedaParaNumero(str) {
+    // Remove todos os caracteres não numéricos
     const valorStr = str.replace(/[^\d]/g, '');
     if (valorStr === '') return 0;
     // Ex: "4000000" -> "40000.00"
